@@ -1,0 +1,25 @@
+# Ignorar entornos virtuales
+venv/
+env/
+*/venv/
+*/env/
+
+# Archivos de configuración locales
+*.env
+
+# Archivos creados por el sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos generados por Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# Archivos de logs
+*.log
+
+# Editor de texto/IDE (opcional, dependiendo de tu editor)
+.vscode/
+.idea/
