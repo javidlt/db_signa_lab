@@ -1,7 +1,8 @@
 from pymongo import MongoClient
 import pydgraph
 from cassandra.cluster import Cluster
-from schemas.schemas import Schema  
+from cassandra.io.asyncioreactor import AsyncioConnection
+from schemas.schemas import Schema
 
 class DB:
     def __init__(self):
@@ -13,7 +14,7 @@ class DB:
         self.schemas = Schema(self)
     
     def connect_cassandra(self, host='localhost', port=9042):
-        cluster = Cluster([host], port=port)
+        cluster = Cluster([host], port=port, connection_class=AsyncioConnection)
         session = cluster.connect()
         session.execute("CREATE KEYSPACE IF NOT EXISTS twitter WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'}")
         session.set_keyspace('twitter')
@@ -49,3 +50,9 @@ class DB:
     
     def set_db(self, db_name, db_instance):
         self.databases[db_name] = db_instance
+
+if __name__ == "__main__":
+    db = DB()
+    db.connect_cassandra()
+    db.connect_mongo()
+    db.connect_dgraph()

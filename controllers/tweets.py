@@ -19,3 +19,57 @@ class TweetsControllers:
 
     def update_tweet(self):
         pass
+
+    def get_tweets_by_topic(self, topic):
+        query = f"""
+        {{
+            tweets(func: eq(topic, "{topic}")) {{
+                tweet_id
+                text
+                author {{
+                    username
+                }}
+                liked_by {{
+                    username
+                }}
+                retweeted_by {{
+                    username
+                }}
+                replies {{
+                    tweet_id
+                    text
+                    topic
+                }}
+            }}
+        }}
+        """
+        response = self.dgraph.txn(read_only=True).query(query)
+        return response.json()
+    
+    def get_tweets_by_user(self, username):
+        query = f"""
+        {{
+            user(func: eq(username, "{username}")) {{
+                uid
+                username
+                tweets {{
+                    tweet_id
+                    text
+                    topic
+                    liked_by {{
+                        username
+                    }}
+                    retweeted_by {{
+                        username
+                    }}
+                    replies {{
+                        tweet_id
+                        text
+                        topic
+                    }}
+                }}
+            }}
+        }}
+        """
+        response = self.dgraph.txn(read_only=True).query(query)
+        return response.json()

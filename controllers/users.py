@@ -19,3 +19,31 @@ class UserController:
     
     async def create_user(self):
         pass
+    
+    def get_user_interactions(self, username):
+        query = f"""
+        {{
+            user(func: eq(username, "{username}")) {{
+                uid
+                username
+                liked_tweets: ~liked_by {{
+                    tweet_id
+                    text
+                    author {{
+                        username
+                    }}
+                    topic
+                }}
+                retweeted_tweets: ~retweeted_by {{
+                    tweet_id
+                    text
+                    author {{
+                        username
+                    }}
+                    topic
+                }}
+            }}
+        }}
+        """
+        response = self.dgraph.txn(read_only=True).query(query)
+        return response.json()

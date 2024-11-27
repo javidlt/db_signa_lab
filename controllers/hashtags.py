@@ -24,4 +24,30 @@ class HashtagControllers:
         pass
 
     def get_tweets(self):
+
         pass
+
+    def get_tweets_by_topic(self, topic):
+        query = f"""
+        {{
+            tweets(func: eq(topic, "{topic}")) {{
+                tweet_id
+                text
+                author {{
+                    username
+                }}
+                liked_by {{
+                    username
+                }}
+                retweeted_by {{
+                    username
+                }}
+                replies {{
+                    tweet_id
+                    text
+                }}
+            }}
+        }}
+        """
+        response = self.dgraph.txn(read_only=True).query(query)
+        return JSONResponse(content=response.json())
