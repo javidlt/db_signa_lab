@@ -34,15 +34,33 @@ class Schema:
     def UserDgraph(self):
         # Define Dgraph user schema
         return """
+        type User {
+            user_id
+            tweets
+            name
+        }
+
         user_id: string @index(exact) .
         tweets: [uid] @reverse .
         name: string @index(term) .
+
+
         """
 
     
     def TweetDgraph(self):
         # Define Dgraph tweet schema
         return """
+        type Tweet {
+            tweet_id
+            text
+            author
+            liked_by
+            retweeted_by
+            replies
+            topic
+        }
+
         tweet_id: string @index(exact) .
         text: string @index(fulltext) .
         author: uid @reverse .
@@ -50,10 +68,18 @@ class Schema:
         retweeted_by: [uid] @reverse .
         replies: [uid] @reverse .
         topic: string @index(term) .
+
+
         """
     def HashtagDgraph(self):
         # Define Dgraph hashtag schema
         return """
+        type Hashtag {
+            hashtag_id
+            name
+            tweets
+        }
+
         hashtag_id: string @index(exact) .
         name: string @index(term) .
         tweets: [uid] @reverse .
@@ -73,6 +99,13 @@ class Schema:
 
     def execute_dgraph(self):
         client = self.db.get_db('dgraph')
-        schema = self.UserDgraph() + self.TweetDgraph() + self.HashtagDgraph()
+        # print(self.UserDgraph())
+        print(self.UserDgraph() + self.TweetDgraph() + self.HashtagDgraph())
+        # schema = self.UserDgraph() + self.TweetDgraph() + self.HashtagDgraph()
+        schema = self.UserDgraph() 
+        op = pydgraph.Operation(schema=schema)
+        schema = self.TweetDgraph() 
+        op = pydgraph.Operation(schema=schema)
+        schema = self.HashtagDgraph() 
         op = pydgraph.Operation(schema=schema)
         client.alter(op)
