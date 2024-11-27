@@ -13,12 +13,109 @@ class Schema:
     
     def UserMongo(self):
         return {
-            # Define MongoDB user schema
+            'created_at': {
+                'type': 'date'
+            },
+            'name': {
+                'type': 'string'
+            },
+            'id': {
+                'type': 'string'
+            },
+            'public_metrics': {
+                'type': 'object',
+                'properties': {
+                    'followers_count': {'type': 'integer'},
+                    'following_count': {'type': 'integer'},
+                    'tweet_count': {'type': 'integer'},
+                    'listed_count': {'type': 'integer'}
+                }
+            },
+            'username': {
+                'type': 'string'
+            },
+            'location': {
+                'type': 'string'
+            }
         }
     
     def TweetMongo(self):
         return {
-            # Define MongoDB tweet schema
+            'text': {
+                'type': 'string'
+            },
+            'id': {
+                'type': 'string'
+            },
+            'created_at': {
+                'type': 'date'
+            },
+            'source': {
+                'type': 'string'
+            },
+            'retweet_count': {
+                'type': 'integer'
+            },
+            'reply_count': {
+                'type': 'integer'
+            },
+            'like_count': {
+                'type': 'integer'
+            },
+            'quote_count': {
+                'type': 'integer'
+            },
+            'author_id': {
+                'type': 'string'
+            },
+            'user_name': {
+                'type': 'string'
+            },
+            'user_username': {
+                'type': 'string'
+            },
+            'user_created_at': {
+                'type': 'date'
+            },
+            'user_followers_count': {
+                'type': 'integer'
+            },
+            'user_tweet_count': {
+                'type': 'integer'
+            },
+            'hashtags': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'
+                }
+            },
+            'mentions': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'
+                }
+            },
+            'urls': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'
+                }
+            },
+            'sentiment': {
+                'type': 'string'
+            },
+            'Embedding': {
+                'type': 'array',
+                'items': {
+                    'type': 'number'
+                }
+            },
+            'embeddingsReducidos': {
+                'type': 'array',
+                'items': {
+                    'type': 'number'
+                }
+            }
         }
     
     def UserCassandra(self):

@@ -16,6 +16,6 @@ class UserController:
 
     async def update_user(self):
         pass
-    
+
     async def create_user(self):
         pass
