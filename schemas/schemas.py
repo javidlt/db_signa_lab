@@ -1,4 +1,5 @@
 import pydgraph
+from pydantic import BaseModel
 
 class Schema:
     def __init__(self, db):
