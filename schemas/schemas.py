@@ -120,13 +120,34 @@ class Schema:
         }
     
     def UserCassandra(self):
-        # Define Cassandra user schema
         return """
+        CREATE TABLE users (
+            author_id text,
+            user_username text,
+            user_created_at timestamp,
+            user_followers_count int,
+            user_tweet_count int,
+            user_name text,
+            PRIMARY KEY ((author_id), user_created_at, user_followers_count, user_tweet_count)
+        ) WITH CLUSTERING ORDER BY (user_created_at DESC, user_followers_count DESC, user_tweet_count DESC);
         """
     
     def TweetCassandra(self):
-        # Define Cassandra tweet schema
         return """
+        CREATE TABLE tweets (
+            author_id text,
+            created_at timestamp,
+            sentiment text,
+            id text,
+            text text,
+            retweet_count int,
+            reply_count int,
+            like_count int,
+            quote_count int,
+            source text,
+            user_username text,
+            PRIMARY KEY ((author_id), created_at, sentiment)
+        ) WITH CLUSTERING ORDER BY (created_at DESC, sentiment DESC);
         """
 
     def UserDgraph(self):
