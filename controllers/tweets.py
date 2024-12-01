@@ -2,6 +2,7 @@ from utils.embeddings import dotProduct
 from schemas.schema import TweetModel
 from bson import ObjectId
 import pydgraph
+from typing import Optional
 
 class TweetsControllers:
     def __init__(self, db, embedder=None):
@@ -93,10 +94,11 @@ class TweetsControllers:
     def post_tweet_semantic(self, tweet_data: dict):
         tweet = self.TweetMongoSchema(**tweet_data)
         tweet.Embedding = self.embedder.encode(tweet.text).tolist()
-        result = self.mongo.tweets.insert_one(tweet.dict(exclude_unset=True))
+        result = self.mongo.tweets.insert_one(tweet.model_dump(exclude_unset=True))
         created_tweet = self.mongo.tweets.find_one({"_id": result.inserted_id})
+        if created_tweet:
+            created_tweet["_id"] = str(created_tweet["_id"])
 
-        # Add tweet to Dgraph
         dgraph_tweet = {
             "uid": "_:new_tweet",
             "text": tweet.text,

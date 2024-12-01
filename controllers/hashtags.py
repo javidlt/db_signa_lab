@@ -9,7 +9,6 @@ class HashtagControllers:
         self.dgraph = db.get_db('dgraph')
 
     def get_hashtags(self):
-        # Implement get_hashtags method with dgraph
         txn = self.dgraph.txn(read_only=True)
         try:
             query = """
@@ -27,7 +26,6 @@ class HashtagControllers:
             txn.discard()
 
     def get_hashtag(self, hashtag_id: str):
-        # Implement get_hashtag method with dgraph
         txn = self.dgraph.txn(read_only=True)
         try:
             query = f"""
@@ -49,7 +47,6 @@ class HashtagControllers:
             txn.discard()
 
     def create_hashtag(self, hashtag_data: dict):
-        # Implement create_hashtag method with dgraph
         txn = self.dgraph.txn()
         try:
             nquads = f"""
@@ -63,7 +60,6 @@ class HashtagControllers:
             txn.discard()
 
     def delete_hashtag(self, hashtag_id: str):
-        # Implement delete_hashtag method with dgraph
         txn = self.dgraph.txn()
         try:
             query = f"""
@@ -78,7 +74,6 @@ class HashtagControllers:
             txn.discard()
 
     def update_hashtag(self, hashtag_id: str, hashtag_data: dict):
-        # Implement update_hashtag method with dgraph
         txn = self.dgraph.txn()
         try:
             nquads = f'<_:hashtag> <hashtag_id> "{hashtag_id}" .\n'
@@ -91,7 +86,6 @@ class HashtagControllers:
             txn.discard()
 
     def get_tweets(self, hashtag_id: str):
-        # Implement get_tweets method with dgraph
         txn = self.dgraph.txn(read_only=True)
         try:
             query = f"""
