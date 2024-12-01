@@ -7,8 +7,17 @@ options = {
     "1": "Búsqueda semantica tweets",
     "2": "Búsqueda agrupada por sentimiento tweets",
     "3": "Búsqueda de tweets por fecha",
-    "4": "Búsqueda de usuarios con más seguidores creados en x año"
+    "4": "Búsqueda de usuarios con más seguidores creados en x año",
+    "5": "Filtrar tweets por tópicos",
+    "6": "Filtrar tweets por usuario",
+    "7": "Filtrar tweets por hashtag",
+    "8": "Ver interacciones de tweets por tópicos",
+    "9": "Ver interacciones de tweets por usuario",
+    "10": "Ver interacciones de tweets por hashtag",
+    "11": "Ver relaciones de usuarios por likes y retweets",
+    "12": "Ver clasificación de respuestas a tweets"
 }
+
 sentiments = {
     "1": "1 star",
     "2": "2 stars",
@@ -50,6 +59,29 @@ def main():
             max_followers = input("Ingresa el máximo de seguidores (default: 100000): ") or "100000"
             limit = input("Ingresa el límite de resultados (default 100): ") or "100"
             response = requests.get(f"{API_URL}/users-by-followers?year={year}&min_followers={min_followers}&max_followers={max_followers}&limit={limit}")
+        elif selection == "5":
+            topic = input("Ingresa el tópico: ")
+            response = requests.get(f"{API_URL}/tweets/by_topic?topic={topic}")
+        elif selection == "6":
+            user_id = input("Ingresa el ID del usuario: ")
+            response = requests.get(f"{API_URL}/tweets/by_user?user_id={user_id}")
+        elif selection == "7":
+            hashtag = input("Ingresa el hashtag: ")
+            response = requests.get(f"{API_URL}/tweets/by_hashtag?hashtag={hashtag}")
+        elif selection == "8":
+            topic = input("Ingresa el tópico: ")
+            response = requests.get(f"{API_URL}/interactions/by_topic?topic={topic}")
+        elif selection == "9":
+            user_id = input("Ingresa el ID del usuario: ")
+            response = requests.get(f"{API_URL}/interactions/by_user?user_id={user_id}")
+        elif selection == "10":
+            hashtag = input("Ingresa el hashtag: ")
+            response = requests.get(f"{API_URL}/interactions/by_hashtag?hashtag={hashtag}")
+        elif selection == "11":
+            response = requests.get(f"{API_URL}/user_relations")
+        elif selection == "12":
+            tweet_id = input("Ingresa el ID del tweet: ")
+            response = requests.get(f"{API_URL}/tweet_responses?tweet_id={tweet_id}")
         else:
             print("Opción no válida")
             continue
