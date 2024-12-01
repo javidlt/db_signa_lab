@@ -1,7 +1,7 @@
 from utils.embeddings import dotProduct
 from schemas.schema import TweetModel
 from bson import ObjectId
-from typing import Optional
+import pydgraph
 
 class TweetsControllers:
     def __init__(self, db, embedder=None):
@@ -95,7 +95,37 @@ class TweetsControllers:
         tweet.Embedding = self.embedder.encode(tweet.text).tolist()
         result = self.mongo.tweets.insert_one(tweet.dict(exclude_unset=True))
         created_tweet = self.mongo.tweets.find_one({"_id": result.inserted_id})
-        # TODO: Add tweet to Dgraph
+
+        # Add tweet to Dgraph
+        dgraph_tweet = {
+            "uid": "_:new_tweet",
+            "text": tweet.text,
+            "Embedding": tweet.Embedding,
+            "created_at": tweet.created_at,
+            "source": tweet.source,
+            "retweet_count": tweet.retweet_count,
+            "reply_count": tweet.reply_count,
+            "like_count": tweet.like_count,
+            "quote_count": tweet.quote_count,
+            "author_id": tweet.author_id,
+            "user_name": tweet.user_name,
+            "user_username": tweet.user_username,
+            "user_created_at": tweet.user_created_at,
+            "user_followers_count": tweet.user_followers_count,
+            "user_tweet_count": tweet.user_tweet_count,
+            "hashtags": tweet.hashtags,
+            "mentions": tweet.mentions,
+            "urls": tweet.urls,
+            "sentiment": tweet.sentiment,
+            "embeddingsReducidos": tweet.embeddingsReducidos
+        }
+        txn = self.dgraph.txn()
+        try:
+            txn.mutate(set_obj=dgraph_tweet)
+            txn.commit()
+        finally:
+            txn.discard()
+
         # TODO: Add tweet to Cassandra
         return created_tweet
 
@@ -147,7 +177,22 @@ class TweetsControllers:
             update_fields['embeddingsReducidos'] = tweet_data['embeddingsReducidos']
 
         result = self.mongo.tweets.update_one({"_id": ObjectId(tweet_id)}, {"$set": update_fields})
-        # TODO: Update tweet in Dgraph
+        
+        txn = self.dgraph.txn()
+        try:
+            nquads = f'<_:tweet> <tweet_id> "{tweet_id}" .\n'
+            for key, value in update_fields.items():
+                if isinstance(value, list):
+                    for item in value:
+                        nquads += f'<_:tweet> <{key}> "{item}" .\n'
+                else:
+                    nquads += f'<_:tweet> <{key}> "{value}" .\n'
+            mutation = pydgraph.Mutation(set_nquads=nquads)
+            txn.mutate(mutation=mutation, commit_now=True)
+        finally:
+            txn.discard()
+        
+        
         # TODO: Update tweet in Cassandra
         if result.matched_count:
             return {"message": "Tweet updated successfully"}
@@ -159,10 +204,39 @@ class TweetsControllers:
         # TODO: Delete tweet in Dgraph
         # TODO: Delete tweet in Cassandra
         if result.deleted_count:
+            txn = self.dgraph.txn()
+            try:
+                query = f"""
+                {{
+                    tweet as var(func: eq(tweet_id, "{tweet_id}"))
+                }}
+                """
+                mutation = pydgraph.Mutation(del_nquads=f"uid(tweet) * * .")
+                txn.mutate(mutation=mutation, commit_now=True)
+            finally:
+                txn.discard()
+            
             return {"message": "Tweet deleted successfully"}
         else:
             return {"message": "Tweet not found"}
 
     def get_tweet_relation_with_hashtags(self, tweet_id: str):
-        # TODO: Implement get_tweet_relation_with_hashtags method with dgraph
-        pass
+        txn = self.dgraph.txn(read_only=True)
+        try:
+            query = f"""
+            {{
+                tweet(func: eq(tweet_id, "{tweet_id}")) {{
+                    tweet_id
+                    text
+                    hashtags {{
+                        hashtag_id
+                        name
+                    }}
+                }}
+            }}
+            """
+            response = txn.query(query)
+            result = response.json()
+            return result.get('tweet', [])
+        finally:
+            txn.discard()
