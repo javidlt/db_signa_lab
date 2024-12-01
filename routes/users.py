@@ -19,7 +19,19 @@ async def delete_user(request: Request, user_id: str):
     user_controller = UserController(request.app.state.db)
     return await user_controller.delete_user(user_id)
 
+
 @router.put("/users/{user_id}")
 async def update_user(request: Request, user_id: str, user_model: UserModel = Body(...)):
     user_controller = UserController(request.app.state.db)
     return await user_controller.update_user(user_id, user_model.dict())
+
+@router.get("/user_relations")
+async def get_user_relations(request: Request):
+    user_controller = UserController(request.app.state.db)
+    return await user_controller.get_user_relations()
+
+
+@router.get("/interactions/by_user")
+async def get_interactions_by_user(request: Request, user_id: str):
+    user_controller = UserController(request.app.state.db)
+    return await user_controller.get_interactions_by_user(user_id)

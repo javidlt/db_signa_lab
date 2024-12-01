@@ -27,3 +27,7 @@ def delete_hashtag(request: Request, hashtag: str):
 def update_hashtag(request: Request, hashtag: str):
     hashtag_controller = HashtagControllers(request.app.state.db)
     return hashtag_controller.update_hashtag(hashtag)
+@router.get("/interactions/by_hashtag")
+async def get_interactions_by_hashtag(request: Request, hashtag: str):
+    hashtag_controller = HashtagControllers(request.app.state.db)
+    return await hashtag_controller.get_interactions_by_hashtag(hashtag)
