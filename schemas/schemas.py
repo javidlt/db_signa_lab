@@ -6,8 +6,8 @@ class Schema:
         self.db = db
         self.MongoUser = self.UserMongo()
         self.MongoTweet = self.TweetMongo()
-        self.CassandraUser = self.UserCassandra()
-        self.CassandraTweet = self.TweetCassandra()
+        self.CassandraTweetByDate = self.cass_tweets_by_created_at()
+        self.CassandraUserFollowers = self.cass_user_followers()
         self.DgraphUser = self.UserDgraph()
         self.DgraphTweet = self.TweetDgraph()
         self.DgraphHashtag = self.HashtagDgraph()
@@ -119,35 +119,42 @@ class Schema:
             }
         }
     
-    def UserCassandra(self):
+    #TABLAS CASSANDRA
+
+    # puedo hacer queries por fecha (tweet)
+    def cass_tweets_by_created_at(self): 
         return """
-        CREATE TABLE users (
-            author_id text,
-            user_username text,
-            user_created_at timestamp,
-            user_followers_count int,
-            user_tweet_count int,
-            user_name text,
-            PRIMARY KEY ((author_id), user_created_at, user_followers_count, user_tweet_count)
-        ) WITH CLUSTERING ORDER BY (user_created_at DESC, user_followers_count DESC, user_tweet_count DESC);
-        """
-    
-    def TweetCassandra(self):
-        return """
-        CREATE TABLE tweets (
-            author_id text,
+        CREATE TABLE IF NOT EXISTS tweets_by_created_at (
+            year int,
+            month int,
+            day int,
             created_at timestamp,
-            sentiment text,
-            id text,
             text text,
             retweet_count int,
             reply_count int,
             like_count int,
-            quote_count int,
-            source text,
             user_username text,
-            PRIMARY KEY ((author_id), created_at, sentiment)
-        ) WITH CLUSTERING ORDER BY (created_at DESC, sentiment DESC);
+            PRIMARY KEY ((year, month, day), created_at)
+        ) WITH CLUSTERING ORDER BY (created_at DESC);
+        """
+    
+    #consultar a los usuarios en base a sus seguidores
+    def cass_user_followers(self):
+        return """
+        CREATE TABLE IF NOT EXISTS user_followers (
+            year int,
+            month int,
+            day int,
+            username text,
+            user_id text,
+            name text,
+            location text,
+            followers_count int,
+            following_count int,
+            tweet_count int,
+            listed_count int,
+            PRIMARY KEY (year, followers_count)
+        ) WITH CLUSTERING ORDER BY (followers_count DESC);
         """
 
     def UserDgraph(self):
@@ -174,9 +181,9 @@ class Schema:
 
     def execute_cassandra(self):
         session = self.db.get_db('cassandra')
-        session.execute(self.UserCassandra())
-        session.execute(self.TweetCassandra())
-
+        session.execute(self.cass_tweets_by_created_at())
+        session.execute(self.cass_user_followers())
+        
     def execute_dgraph(self):
         client = self.db.get_db('dgraph')
         schema = self.UserDgraph() + self.TweetDgraph() + self.HashtagDgraph()

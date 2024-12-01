@@ -1,7 +1,7 @@
 from utils.embeddings import dotProduct
 from schemas.schema import TweetModel
 from bson import ObjectId
-from datetime import datetime
+from fastapi import HTTPException
 
 class TweetsControllers:
     def __init__(self, db, embedder=None):
@@ -12,74 +12,64 @@ class TweetsControllers:
         self.dgraph = db.get_db('dgraph')
         self.TweetMongoSchema = TweetModel
 
-    def get_tweets(self, 
-        author_id: str = None, 
-        start_date: datetime = None, 
-        end_date: datetime = None, 
-        sentiment: str = None, 
-        limit: int = 10, 
-        page: int = 1
-    ):
-        try:
-            base_query = "SELECT * FROM tweets"
-            where_clauses = []
-            params = []
+    def get_tweets_by_date(self, year: int = None, month: int = None, day: int = None, limit: int = 20):
+        try:            
+            if year is None or month is None or day is None:
+                raise ValueError("Se requieren year, month y day")
 
-            # Filtros
-            if author_id:
-                where_clauses.append("author_id = %s")
-                params.append(author_id)
-            
-            if start_date:
-                where_clauses.append("created_at >= %s")
-                params.append(start_date)
-            
-            if end_date:
-                where_clauses.append("created_at <= %s")
-                params.append(end_date)
-            
-            if sentiment:
-                where_clauses.append("sentiment = %s")
-                params.append(sentiment)
+            query = """
+                SELECT *
+                FROM tweets_by_created_at
+                WHERE year = ? AND month = ? AND day = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """
+            try:
+                prepared_query = self.cassandra.prepare(query)
+                
+                results = self.cassandra.execute(prepared_query, [year, month, day, limit])
 
-            # Construir la consulta
-            if where_clauses:
-                query = f"{base_query} WHERE {' AND '.join(where_clauses)}"
-            else:
-                query = base_query
+                tweets = []
+                for row in results:
+                    tweet = {
+                        'year': row.year,
+                        'month': row.month,
+                        'day': row.day,
+                        'created_at': row.created_at,
+                        'text': row.text,
+                        'retweet_count': row.retweet_count,
+                        'reply_count': row.reply_count,
+                        'like_count': row.like_count,
+                        'user_username': row.user_username
+                    }
+                    tweets.append(tweet)
+                
+                print(f"Número de tweets encontrados: {len(tweets)}")
+                return tweets
 
-            # Límite y paginación
-            query += " LIMIT %s"
-            params.append(limit)
-
-
-            print(f"Final Query: {query}")
-            print(f"Final Params: {params}")
-
-            # Ejecutar consulta
-            results = self.cassandra.execute(query, params)
-
-            # Mapear resultados
-            return [
-                {
-                    'author_id': row.author_id,
-                    'created_at': row.created_at,
-                    'sentiment': row.sentiment,
-                    'id': row.id,
-                    'text': row.text,
-                    'retweet_count': row.retweet_count,
-                    'reply_count': row.reply_count,
-                    'like_count': row.like_count,
-                    'quote_count': row.quote_count,
-                    'source': row.source,
-                    'user_username': row.user_username,
-                } 
-                for row in results
-            ]
+            except Exception as e:
+                print("Error al ejecutar consulta:", str(e))
+                
+                raise HTTPException(
+                    status_code=500, 
+                    detail={
+                        "error": "Error al ejecutar consulta en Cassandra",
+                        "exception": str(e)
+                    }
+                )
 
         except Exception as e:
-            print(f"Error retrieving tweets: {e}")
-            return [{'error': str(e)}]
+            import traceback
+            print(f"Error general en get_tweets_by_date: {str(e)}")
+            print(traceback.format_exc())
+
+            raise HTTPException(
+                status_code=500, 
+                detail={
+                    "error": "Error al obtener tweets por fecha",
+                    "exception": str(e)
+                }
+            )
 
     def get_tweets_semantic(self, query: str, limit: int = 10, page: int = 1):
         data = self.mongo.tweets
@@ -102,57 +92,22 @@ class TweetsControllers:
 
         return [text for _, text in paginated_similarities]
 
-    # TODO: No funciona el post
     def post_tweet_semantic(self, tweet_data: dict):
+        if 'created_at' in tweet_data and not isinstance(tweet_data['created_at'], str):
+            tweet_data['created_at'] = str(tweet_data['created_at'])
+
         tweet = self.TweetMongoSchema(**tweet_data)
         tweet.Embedding = self.embedder.encode(tweet.text).tolist()
         result = self.mongo.tweets.insert_one(tweet.dict(exclude_unset=True))
-        created_tweet = self.mongo.tweets.find_one({"_id": result.inserted_id})
         # TODO: Add tweet to Dgraph
         
-        cassandra_stmt = self.cassandra.prepare("""
-            INSERT INTO tweets (
-                author_id, 
-                created_at, 
-                sentiment, 
-                id, 
-                text, 
-                retweet_count, 
-                reply_count, 
-                like_count, 
-                quote_count, 
-                source, 
-                user_username
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """)
-
-        try:
-            self.cassandra.execute(cassandra_stmt, (
-                str(tweet.author_id or ""),  
-                tweet.created_at or datetime.now(),  
-                str(tweet.sentiment or "neutral"),  
-                str(result.inserted_id),  
-                str(tweet.text or ""),  
-                tweet.retweet_count or 0,  
-                tweet.reply_count or 0,
-                tweet.like_count or 0,
-                tweet.quote_count or 0,
-                str(tweet.source or ""),  
-                str(tweet.user_username or "")  
-            ))
-        except Exception as e:
-            print(f"Error inserting tweet into Cassandra: {e}")
-
-        return created_tweet
-
     def get_tweet_by_id(self, tweet_id: str):
-        tweet = self.mongo.tweets.find_one({"_id": ObjectId(tweet_id)})
+        tweet = self.mongo.tweets.find_one({"_id": tweet_id})
         if tweet:
             return tweet
         else:
             return {"message": "Tweet not found"}
 
-    # Si jala el post y el delete esto jala 
     def update_tweet(self, tweet_id: str, tweet_data: dict):
         update_fields = {}
         if 'text' in tweet_data:
@@ -195,93 +150,10 @@ class TweetsControllers:
 
         result = self.mongo.tweets.update_one({"_id": ObjectId(tweet_id)}, {"$set": update_fields})
         # TODO: Update tweet in Dgraph
-
-        original_tweet = self.mongo.tweets.find_one({"_id": ObjectId(tweet_id)})
-        if not original_tweet:
-            return {"message": "Tweet not found"}
-
-        self.delete_tweet(tweet_id)
-
-        adapted_tweet_data = {
-            "author_id": original_tweet.get("author_id"),
-            "created_at": original_tweet.get("created_at"),
-            "sentiment": original_tweet.get("sentiment", "neutral"),
-            "id": tweet_id,
-            "text": original_tweet.get("text"),
-            "retweet_count": original_tweet.get("retweet_count", 0),
-            "reply_count": original_tweet.get("reply_count", 0),
-            "like_count": original_tweet.get("like_count", 0),
-            "quote_count": original_tweet.get("quote_count", 0),
-            "source": original_tweet.get("source", ""),
-            "user_username": original_tweet.get("user_username", ""),
-        }
-
-        insert_query = """
-            INSERT INTO tweets (
-                author_id, 
-                created_at, 
-                sentiment, 
-                id, 
-                text, 
-                retweet_count, 
-                reply_count, 
-                like_count, 
-                quote_count, 
-                source, 
-                user_username
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-
-        try:
-            self.cassandra.execute(insert_query, (
-                adapted_tweet_data["author_id"],
-                adapted_tweet_data["created_at"] or datetime.now(),
-                adapted_tweet_data["sentiment"],
-                adapted_tweet_data["id"],
-                adapted_tweet_data["text"],
-                adapted_tweet_data["retweet_count"],
-                adapted_tweet_data["reply_count"],
-                adapted_tweet_data["like_count"],
-                adapted_tweet_data["quote_count"],
-                adapted_tweet_data["source"],
-                adapted_tweet_data["user_username"],
-            ))
-        except Exception as e:
-            print(f"Error inserting tweet into Cassandra: {e}")
-            return {"message": "Error updating tweet"}
-
-        if result.matched_count:
-            return {"message": "Tweet updated successfully"}
-        else:
-            return {"message": "Tweet not found"}
-        
-    # CREO que funciona
+       
     def delete_tweet(self, tweet_id: str):
         result = self.mongo.tweets.delete_one({"_id": tweet_id})
         # TODO: Delete tweet in Dgraph
-
-        if result.deleted_count:
-            try:
-                delete_stmt = self.cassandra.prepare("""
-                    DELETE FROM tweets 
-                    WHERE author_id = ?
-                """)
-                
-                original_tweet = self.mongo.tweets.find_one({"_id": tweet_id})
-                
-                if original_tweet:
-                    self.cassandra.execute(delete_stmt, (
-                        str(original_tweet['author_id']),
-                        original_tweet['created_at'],
-                        str(original_tweet['sentiment'])
-                    ))
-            except Exception as e:
-                print(f"Error deleting tweet from Cassandra: {e}")
-                return {"message": "Error deleting tweet"}
-
-            return {"message": "Tweet deleted successfully"}
-        else:
-            return {"message": "Tweet not found"}
 
     def get_tweet_relation_with_hashtags(self, tweet_id: str):
         # TODO: Implement get_tweet_relation_with_hashtags method with dgraph
