@@ -1,6 +1,7 @@
 from utils.embeddings import dotProduct
 from schemas.schema import TweetModel
 from bson import ObjectId
+from typing import Optional
 
 class TweetsControllers:
     def __init__(self, db, embedder=None):
@@ -18,23 +19,76 @@ class TweetsControllers:
     def get_tweets_semantic(self, query: str, limit: int = 10, page: int = 1):
         data = self.mongo.tweets
         queryEmbedding = self.embedder.encode(query).tolist()
-
-        tweets = list(data.find({}, {"Embedding": 1, "text": 1}))
-
-        similarities = []
+    
+        pipeline = [
+            {
+                "$addFields": {
+                    "similarity": {
+                        "$reduce": {
+                            "input": {
+                                "$map": {
+                                    "input": {"$range": [0, {"$size": "$Embedding"}]},
+                                    "as": "idx",
+                                    "in": {
+                                        "$multiply": [
+                                            {"$arrayElemAt": ["$Embedding", "$$idx"]},
+                                            {"$arrayElemAt": [queryEmbedding, "$$idx"]}
+                                        ]
+                                    }
+                                }
+                            },
+                            "initialValue": 0,
+                            "in": {"$add": ["$$value", "$$this"]}
+                        }
+                    }
+                }
+            },
+            {"$sort": {"similarity": -1}},
+            {"$skip": (page - 1) * limit},
+            {"$limit": limit},
+            {"$project": {"text": 1, "similarity": 1}}
+        ]
+    
+        tweets = list(data.aggregate(pipeline))
         for tweet in tweets:
-            tweet_embedding = tweet.get("Embedding", [])
-            if tweet_embedding:
-                similarity = dotProduct(queryEmbedding, tweet_embedding)
-                similarities.append((similarity, tweet["text"]))
+            tweet["_id"] = str(tweet["_id"])
+        return tweets
+    
+    def get_tweets_by_sentiment(self, sentiment: Optional[str] = None, limit: int = 10, page: int = 1):
+        pipeline = []
+        if sentiment:
+            pipeline.append({"$match": {"sentiment": sentiment}})
+        pipeline.append({"$skip": (page - 1) * limit})
+        pipeline.append({"$limit": limit})
+        pipeline.append({
+            "$group": {
+                "_id": "$sentiment",
+                "tweets": {
+                    "$push": {
+                        "text": "$text",
+                        "created_at": "$created_at",
+                        "source": "$source",
+                        "retweet_count": "$retweet_count",
+                        "reply_count": "$reply_count",
+                        "like_count": "$like_count",
+                        "quote_count": "$quote_count",
+                        "author_id": "$author_id",
+                        "user_name": "$user_name",
+                        "user_username": "$user_username",
+                        "user_created_at": "$user_created_at",
+                        "user_followers_count": "$user_followers_count",
+                        "user_tweet_count": "$user_tweet_count",
+                        "hashtags": "$hashtags",
+                        "mentions": "$mentions",
+                        "urls": "$urls",
+                        "sentiment": "$sentiment"
+                    }
+                }
+            }
+        })
 
-        similarities.sort(reverse=True, key=lambda x: x[0])
-
-        start = (page - 1) * limit
-        end = start + limit
-        paginated_similarities = similarities[start:end]
-
-        return [text for _, text in paginated_similarities]
+        results = list(self.mongo.tweets.aggregate(pipeline))
+        return results
 
     def post_tweet_semantic(self, tweet_data: dict):
         tweet = self.TweetMongoSchema(**tweet_data)
