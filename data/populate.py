@@ -6,6 +6,7 @@ from db import DB
 import pandas as pd
 from datetime import datetime
 from cassandra.query import BatchStatement
+import json
 
 db_instance = DB()
 db_instance.connect_cassandra()
@@ -14,9 +15,6 @@ db_instance.connect_dgraph()
 
 datasetMongoUsers = pd.read_json('data/data_mongo_users.json')
 datasetMongoTweets = pd.read_json('data/data_mongo_tweets.json')
-datasetDgraphUsers = pd.read_json('data/data_dgraph_users.json')
-datasetDgraphTweets = pd.read_json('data/data_dgraph_tweets.json')
-datasetDgraphHashtags = pd.read_json('data/data_dgraph_hashtags.json')
 
 db_cassandra = db_instance.get_db('cassandra')
 
@@ -154,27 +152,80 @@ for i in range(len(datasetMongoTweets)):
     db_mongo.tweets.insert_one(tweet)
 
 db_dgraph = db_instance.get_db('dgraph')
-for i in range(len(datasetDgraphUsers)):
-    user = datasetDgraphUsers.iloc[i].to_dict()
-    txn = db_dgraph.txn()
-    try:
-        txn.mutate(set_obj=user)
-        txn.commit()
-    finally:
-        txn.discard()
-for i in range(len(datasetDgraphTweets)):
-    tweet = datasetDgraphTweets.iloc[i].to_dict()
-    txn = db_dgraph.txn()
-    try:
-        txn.mutate(set_obj=tweet)
-        txn.commit()
-    finally:
-        txn.discard()
-for i in range(len(datasetDgraphHashtags)):
-    hashtag = datasetDgraphHashtags.iloc[i].to_dict()
-    txn = db_dgraph.txn()
-    try:
-        txn.mutate(set_obj=hashtag)
-        txn.commit()
-    finally:
-        txn.discard()
+def populate_dgraph_users(datasetMongoUsers, db_dgraph):
+    for i in range(len(datasetMongoUsers)):
+        user = datasetMongoUsers.iloc[i].to_dict()
+        user_dgraph = {
+            "uid": f"_:{user['id']}",
+            "user_id": str(user['id']),
+            "name": user['name'],
+            "created_at": user['created_at'].isoformat(),
+            "public_metrics": json.dumps(user['public_metrics']),
+            "username": user['username'],
+            "location": user['location']
+        }
+        txn = db_dgraph.txn()
+        try:
+            txn.mutate(set_obj=user_dgraph)
+            txn.commit()
+        finally:
+            txn.discard()
+
+def populate_dgraph_tweets(datasetMongoTweets, db_dgraph):
+    for i in range(len(datasetMongoTweets)):
+        tweet = datasetMongoTweets.iloc[i].to_dict()
+        tweet_dgraph = {
+            "uid": f"_:{tweet['id']}",
+            "tweet_id": str(tweet['id']),
+            "text": tweet['text'],
+            "created_at": tweet['created_at'].isoformat(),
+            "source": tweet['source'],
+            "retweet_count": tweet['retweet_count'],
+            "reply_count": tweet['reply_count'],
+            "like_count": tweet['like_count'],
+            "quote_count": tweet['quote_count'],
+            "author_id": tweet['author_id'],
+            "user_name": tweet['user_name'],
+            "user_username": tweet['user_username'],
+            "user_created_at": tweet['user_created_at'].isoformat(),
+            "user_followers_count": tweet['user_followers_count'],
+            "user_tweet_count": tweet['user_tweet_count'],
+            "hashtags": tweet['hashtags'],
+            "mentions": tweet['mentions'],
+            "urls": tweet['urls'],
+            "sentiment": tweet['sentiment'],
+            "Embedding": tweet['Embedding'],
+            "embeddingsReducidos": tweet['embeddingsReducidos']
+        }
+        txn = db_dgraph.txn()
+        try:
+            txn.mutate(set_obj=tweet_dgraph)
+            txn.commit()
+        finally:
+            txn.discard()
+
+def populate_dgraph_hashtags(datasetMongoTweets, db_dgraph):
+    hashtags = {}
+    for i in range(len(datasetMongoTweets)):
+        tweet = datasetMongoTweets.iloc[i].to_dict()
+        for hashtag in tweet['hashtags']:
+            if hashtag not in hashtags:
+                hashtags[hashtag] = {
+                    "uid": f"_:{hashtag}",
+                    "hashtag_id": hashtag,
+                    "name": hashtag,
+                    "tweets": []
+                }
+            hashtags[hashtag]["tweets"].append({"uid": f"_:{tweet['id']}"})
+   
+    for hashtag in hashtags.values():
+        txn = db_dgraph.txn()
+        try:
+            txn.mutate(set_obj=hashtag)
+            txn.commit()
+        finally:
+            txn.discard()
+
+populate_dgraph_users(datasetMongoUsers, db_dgraph)
+populate_dgraph_tweets(datasetMongoTweets, db_dgraph)
+populate_dgraph_hashtags(datasetMongoTweets, db_dgraph)
