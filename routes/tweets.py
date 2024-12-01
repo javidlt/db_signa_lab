@@ -39,3 +39,18 @@ def delete_tweet(request: Request, tweet_id: str):
 def update_tweet(request: Request, tweet_id: str, tweet_model: TweetModel = Body(...)):
     tweet_controller = TweetsControllers(request.app.state.db, request.app.state.embedder)
     return tweet_controller.update_tweet(tweet_id, tweet_model.dict())
+
+@router.get("/tweet_responses")
+async def get_tweet_responses(request: Request, tweet_id: str):
+    tweet_controller = TweetsControllers(request.app.state.db)
+    return await tweet_controller.get_tweet_responses(tweet_id)
+
+@router.get("/tweets/by_hashtag")
+async def get_tweets_by_hashtag(request: Request, hashtag: str):
+    tweet_controller = TweetsControllers(request.app.state.db)
+    return await tweet_controller.get_tweets_by_hashtag(hashtag)
+
+@router.get("/interactions/by_hashtag")
+async def get_interactions_by_hashtag(request: Request, hashtag: str):
+    tweet_controller = TweetsControllers(request.app.state.db)
+    return await tweet_controller.get_interactions_by_hashtag(hashtag)
