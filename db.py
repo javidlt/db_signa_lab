@@ -20,8 +20,8 @@ class DB:
         self.set_db('cassandra', session)
         try: 
             self.schemas.execute_cassandra()
-        except:
-            print("Error creating cassandra tables")
+        except Exception as e:
+            print(f"Se produjo un error: {e}")
         print("Connected to Cassandra")
 
     def connect_mongo(self, host='localhost', port=27017):

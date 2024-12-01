@@ -5,6 +5,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db import DB
 import pandas as pd
 from datetime import datetime
+from cassandra.query import BatchStatement
 
 db_instance = DB()
 db_instance.connect_cassandra()
@@ -13,32 +14,111 @@ db_instance.connect_dgraph()
 
 datasetMongoUsers = pd.read_json('data/data_mongo_users.json')
 datasetMongoTweets = pd.read_json('data/data_mongo_tweets.json')
-datasetCassandraUsers = pd.read_json('data/data_cassandra_users.json')
-datasetCassandraTweets = pd.read_json('data/data_cassandra_tweets.json')
 datasetDgraphUsers = pd.read_json('data/data_dgraph_users.json')
 datasetDgraphTweets = pd.read_json('data/data_dgraph_tweets.json')
 datasetDgraphHashtags = pd.read_json('data/data_dgraph_hashtags.json')
 
-# insertar datos a cassandra
 db_cassandra = db_instance.get_db('cassandra')
-for i in range(len(datasetCassandraUsers)):
-    user = datasetCassandraUsers.iloc[i].to_dict()
-    db_cassandra.execute(
-        """
-        INSERT INTO users (id, name, email) VALUES (%s, %s, %s)
-        """,
-        (user['id'], user['name'], user['email'])
-    )
-for i in range(len(datasetCassandraTweets)):
-    tweet = datasetCassandraTweets.iloc[i].to_dict()
-    db_cassandra.execute(
-        """
-        INSERT INTO tweets (id, user_id, content) VALUES (%s, %s, %s)
-        """,
-        (tweet['id'], tweet['user_id'], tweet['content'])
-    )
 
-# insertar datos a mongo
+def process_tweet_date(timestamp_ms):
+    timestamp_seconds = timestamp_ms.timestamp()
+    dt = datetime.fromtimestamp(timestamp_seconds)
+
+    return {
+        'year': dt.year,
+        'month': dt.month,
+        'day': dt.day,
+        'datetime': dt
+    }
+
+#populates de cassandra
+def populate_tweets_by_created_at(datasetMongoTweets, db_cassandra):
+    batch = BatchStatement()
+    prepared_stmt = db_cassandra.prepare("""
+        INSERT INTO tweets_by_created_at (
+            year, 
+            month, 
+            day, 
+            created_at, 
+            text, 
+            retweet_count, 
+            reply_count, 
+            like_count, 
+            user_username
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """)
+
+    for i in range(len(datasetMongoTweets)):
+        tweet = datasetMongoTweets.iloc[i].to_dict()
+        dt = process_tweet_date(tweet['created_at'])
+        
+        batch.add(prepared_stmt, (
+            dt['year'],               
+            dt['month'],              
+            dt['day'],                
+            dt['datetime'],               
+            tweet['text'],     
+            tweet['retweet_count'],  
+            tweet['reply_count'],    
+            tweet['like_count'],    
+            tweet['user_username']  
+        ))
+
+        # Ejecuta el batch cada 100 inserciones para no saturar la memoria
+        if (i + 1) % 100 == 0:
+            db_cassandra.execute(batch)
+            batch = BatchStatement()
+
+    # Ejecuta cualquier inserción restante
+    if batch:
+        db_cassandra.execute(batch)
+
+def populate_user_followers(datasetMongoUsers, db_cassandra):
+    batch = BatchStatement()
+    prepared_stmt = db_cassandra.prepare(""" 
+        INSERT INTO user_followers (
+            year,
+            month,
+            day,
+            username, 
+            user_id, 
+            name, 
+            location, 
+            followers_count, 
+            following_count, 
+            tweet_count,
+            listed_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """)
+
+    for i in range(len(datasetMongoUsers)):
+        user = datasetMongoUsers.iloc[i].to_dict()
+        dt = process_tweet_date(user['created_at'])
+
+        batch.add(prepared_stmt, (
+            dt['year'],               
+            dt['month'],              
+            dt['day'],
+            user['username'],                               
+            str(user['id']),  
+            user['name'],  
+            user['location'],  
+            user['public_metrics']['followers_count'],    
+            user['public_metrics']['following_count'],
+            user['public_metrics']['tweet_count'],
+            user['public_metrics']['listed_count']         
+        ))
+
+        if (i + 1) % 100 == 0:
+            db_cassandra.execute(batch)
+            batch = BatchStatement()
+
+    if batch:
+        db_cassandra.execute(batch)
+
+populate_tweets_by_created_at(datasetMongoTweets, db_cassandra)
+populate_user_followers(datasetMongoUsers, db_cassandra)
+
 db_mongo = db_instance.get_db('mongo')
 for i in range(len(datasetMongoUsers)):
     user = datasetMongoUsers.iloc[i].to_dict()
@@ -73,7 +153,6 @@ for i in range(len(datasetMongoTweets)):
     tweet['embeddingsReducidos'] = list(map(float, tweet['embeddingsReducidos']))
     db_mongo.tweets.insert_one(tweet)
 
-# insertar datos a dgraph
 db_dgraph = db_instance.get_db('dgraph')
 for i in range(len(datasetDgraphUsers)):
     user = datasetDgraphUsers.iloc[i].to_dict()
