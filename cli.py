@@ -4,8 +4,10 @@ import requests
 API_URL = "http://localhost:8000"
 
 options = {
-    "1": "Busqueda semantica tweets",
-    "2": "Busqueda agrupada por sentimiento tweets"
+    "1": "Búsqueda semantica tweets",
+    "2": "Búsqueda agrupada por sentimiento tweets",
+    "3": "Búsqueda de tweets por fecha",
+    "4": "Búsqueda de usuarios con más seguidores creados en x año"
 }
 sentiments = {
     "1": "1 star",
@@ -36,6 +38,18 @@ def main():
             limit = input("Ingresa el límite de resultados (default 10): ") or "10"
             page = input("Ingresa el número de página (default 1): ") or "1"
             response = requests.get(f"{API_URL}/tweets/by_sentiment?sentiment={sentiment}&limit={limit}&page={page}")
+        elif selection == "3":
+            year = input("Ingresa el año (default: 2014) (solo hay datos de 2014): ") or "2014"
+            month = input("Ingresa el mes (default: 9) (solo hay datos del mes 9): ") or "9"
+            day = input("Ingresa el día (25-27), (default: 26) (solo hay datos del 25 al 27)): ") or "26"
+            limit = input("Ingresa el límite de resultados (default 20): ") or "20"
+            response = requests.get(f"{API_URL}/tweets-by-date?year={year}&month={month}&day={day}&limit={limit}")
+        elif selection == "4":
+            year = input("Ingresa el año (default: 2010): ") or "2010"
+            min_followers = input("Ingresa el mínimo de seguidores (default: 0): ") or "0"
+            max_followers = input("Ingresa el máximo de seguidores (default: 100000): ") or "100000"
+            limit = input("Ingresa el límite de resultados (default 100): ") or "100"
+            response = requests.get(f"{API_URL}/users-by-followers?year={year}&min_followers={min_followers}&max_followers={max_followers}&limit={limit}")
         else:
             print("Opción no válida")
             continue
