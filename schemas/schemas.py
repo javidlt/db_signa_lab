@@ -132,17 +132,53 @@ class Schema:
     def UserDgraph(self):
         # Define Dgraph user schema
         return """
+        type User {
+            user_id
+            tweets
+            name
+        }
+
+        user_id: string @index(exact) .
+        tweets: [uid] @reverse .
+        name: string @index(term) .
         """
     
     def TweetDgraph(self):
         # Define Dgraph tweet schema
         return """
+        type Tweet {
+            tweet_id
+            text
+            author
+            liked_by
+            retweeted_by
+            replies
+            topic
+        }
+
+        tweet_id: string @index(exact) .
+        text: string @index(fulltext) .
+        author: uid @reverse .
+        liked_by: [uid] @reverse .
+        retweeted_by: [uid] @reverse .
+        replies: [uid] @reverse .
+        topic: string @index(term) .
         """
     
     def HashtagDgraph(self):
         # Define Dgraph hashtag schema
         return """
+        type Hashtag {
+            hashtag_id
+            name
+            tweets
+        }
+
+        hashtag_id: string @index(exact) .
+        name: string @index(term) .
+        tweets: [uid] @reverse .
         """
+
 
     def execute_mongo(self):
         db = self.db.get_db('mongo')
