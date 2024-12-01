@@ -19,6 +19,12 @@ py populate.py
 ```
 
 ### Correr
+- Se debe de tener acceso a internet para cargar el modelo dado que viene desde hugging face
 ```
 uvicorn app:app --reload
+```
+
+## Correr cli
+```
+py cli.py
 ```
