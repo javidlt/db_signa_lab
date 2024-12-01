@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Body
+from fastapi import APIRouter, Request, Body, Query
 from controllers.tweets import TweetsControllers
 from schemas.schema import TweetModel, QueryModel
+from typing import Optional
 
 router = APIRouter()
 
@@ -10,9 +11,14 @@ def get_tweets(request: Request):
     return tweet_controller.get_tweets()
 
 @router.get("/tweets/semantic")
-def get_tweets_semantic(request: Request, query_model: QueryModel):
+def get_tweets_semantic(request: Request, query: str = Query(...), limit: int = Query(10), page: int = Query(1)):
     tweet_controller = TweetsControllers(request.app.state.db, request.app.state.embedder)
-    return tweet_controller.get_tweets_semantic(query_model.query, query_model.limit, query_model.page)
+    return tweet_controller.get_tweets_semantic(query, limit, page)
+
+@router.get("/tweets/by_sentiment")
+def get_tweets_by_sentiment(request: Request, sentiment: Optional[str] = Query(None), limit: int = Query(10), page: int = Query(1)):
+    tweet_controller = TweetsControllers(request.app.state.db, request.app.state.embedder)
+    return tweet_controller.get_tweets_by_sentiment(sentiment, limit, page)
 
 @router.get("/tweets/by_id/{tweet_id}")
 def get_tweet(request: Request, tweet_id: str):

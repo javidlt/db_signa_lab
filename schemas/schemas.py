@@ -150,6 +150,8 @@ class Schema:
             db.create_collection('users')
         if 'tweets' not in db.list_collection_names():
             db.create_collection('tweets')
+        # index para los urls con tweets
+        db.tweets.create_index([("sentiment", 1)])
 
     def execute_cassandra(self):
         session = self.db.get_db('cassandra')
