@@ -20,7 +20,6 @@ class UserController:
     async def delete_user(self, user_id: str):
         result = self.mongo.users.delete_one({"_id": ObjectId(user_id)})
         if result.deleted_count:
-            # Delete user in Dgraph
             txn = self.dgraph.txn()
             try:
                 query = f"""
@@ -41,7 +40,6 @@ class UserController:
         update_fields = {k: v for k, v in user_data.items() if v is not None}
         result = self.mongo.users.update_one({"_id": ObjectId(user_id)}, {"$set": update_fields})
         if result.matched_count:
-            # Update user in Dgraph
             txn = self.dgraph.txn()
             try:
                 nquads = ""
@@ -62,7 +60,6 @@ class UserController:
         created_user = self.mongo.users.find_one({"_id": result.inserted_id})
         if created_user:
             created_user["_id"] = str(created_user["_id"])
-            #Add user to Dgraph
             txn = self.dgraph.txn()
             try:
                 nquads = f"""
@@ -77,8 +74,6 @@ class UserController:
         return created_user
     
     async def get_user_tweets(self, user_id: str):
-        # Implement get_user_tweets method with dgraph
-        pass
         query = f"""
         {{
             user(func: eq(user_id, "{user_id}")) {{
