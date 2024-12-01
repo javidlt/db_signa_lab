@@ -4,15 +4,10 @@ from schemas.schema import UserModel
 
 router = APIRouter()
 
-@router.get("/users")
-async def get_users(request: Request):
+@router.get("/users-by-followers")
+async def get_users_by_followers(request: Request, year: int = None, min_followers: int = None, max_followers: int = None, limit: int = 100):
     user_controller = UserController(request.app.state.db)
-    return await user_controller.get_users()
-
-@router.get("/users/{user_id}")
-async def get_user(request: Request, user_id: str):
-    user_controller = UserController(request.app.state.db)
-    return await user_controller.get_user(user_id)
+    return await user_controller.get_users_by_followers(year=year, min_followers=min_followers, max_followers=max_followers, limit=limit)
 
 @router.post("/users")
 async def create_user(request: Request, user_model: UserModel = Body(...)):

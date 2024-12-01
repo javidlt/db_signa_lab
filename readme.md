@@ -1,3 +1,4 @@
+
 # Librerías a instalar
 - fastapi
 - uvicorn
@@ -8,7 +9,7 @@
 - torch
 - sentence_transformers
 ```
-pip install fastapi uvicorn pymongo pydgraph cassandra-driver pandas numpy==1.23.5 torch==2.1.0 sentence-transformers
+pip install fastapi uvicorn pymongo pydgraph cassandra-driver pandas numpy==1.23.5 torch==2.1.0 sentence-transformers datetime
 ```
 
 # Correr para insertar datos

@@ -5,10 +5,10 @@ from typing import Optional
 
 router = APIRouter()
 
-@router.get("/tweets")
-def get_tweets(request: Request):
+@router.get("/tweets-by-date")
+def get_tweets_by_date(request: Request, year: int, month: int, day: int, limit: int = 20):
     tweet_controller = TweetsControllers(request.app.state.db)
-    return tweet_controller.get_tweets()
+    return tweet_controller.get_tweets_by_date(year, month, day, limit)
 
 @router.get("/tweets/semantic")
 def get_tweets_semantic(request: Request, query: str = Query(...), limit: int = Query(10), page: int = Query(1)):
@@ -23,7 +23,7 @@ def get_tweets_by_sentiment(request: Request, sentiment: Optional[str] = Query(N
 @router.get("/tweets/by_id/{tweet_id}")
 def get_tweet(request: Request, tweet_id: str):
     tweet_controller = TweetsControllers(request.app.state.db)
-    return tweet_controller.get_tweet(tweet_id)
+    return tweet_controller.get_tweet_by_id(tweet_id)
 
 @router.post("/tweets")
 def post_tweet(request: Request, tweet_model: TweetModel = Body(...)):
